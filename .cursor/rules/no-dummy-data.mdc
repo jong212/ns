@@ -1,0 +1,70 @@
+# 더미데이터 사용 금지
+
+## **핵심 원칙**
+
+- **절대 더미데이터 사용 금지**: 개발 중에도 항상 실제 데이터베이스 연결 사용
+- **실제 데이터로만 개발**: 테스트용 더미데이터나 하드코딩된 샘플 데이터 금지
+- **데이터베이스 연결 문제 해결 우선**: API 키, 연결 오류 등은 즉시 해결
+
+## **금지 사항**
+
+```typescript
+// ❌ DON'T: 더미데이터 사용
+const dummyData = [
+  { id: '1', title: '테스트 제목', content: '테스트 내용' }
+];
+
+// ❌ DON'T: 하드코딩된 샘플 데이터
+const sampleArticles = [
+  { id: '1', title: '샘플 기사' }
+];
+
+// ❌ DON'T: 임시 데이터로 우회
+const tempData = mockData || fallbackData;
+```
+
+## **올바른 접근법**
+
+```typescript
+// ✅ DO: 실제 데이터베이스 연결
+const { data, error } = await supabase
+  .from('articles')
+  .select('*')
+  .order('published_at', { ascending: false });
+
+// ✅ DO: 연결 오류 시 즉시 해결
+if (error) {
+  console.error('데이터베이스 연결 오류:', error);
+  // API 키 확인, 네트워크 연결 확인 등 즉시 해결
+}
+
+// ✅ DO: 실제 데이터로 개발
+return NextResponse.json({
+  success: true,
+  data: data,
+  total: data?.length || 0
+});
+```
+
+## **문제 해결 우선순위**
+
+1. **API 키 문제**: Supabase ANON 키 즉시 확인 및 수정
+2. **네트워크 연결**: 데이터베이스 연결 상태 확인
+3. **스키마 문제**: 테이블 구조 및 컬럼 확인
+4. **권한 문제**: RLS 정책 및 접근 권한 확인
+
+## **개발 워크플로우**
+
+1. **데이터베이스 연결 확인** → 2. **실제 데이터 조회** → 3. **기능 개발**
+- 더미데이터로 우회하지 말고 연결 문제를 먼저 해결
+- 실제 데이터가 없으면 Edge Function으로 데이터 수집부터 시작
+
+## **예외 상황**
+
+- **단위 테스트**: 테스트 환경에서만 허용
+- **문서화**: API 문서 예시용으로만 사용
+- **프로토타입**: 초기 기획 단계에서만 사용 (실제 개발 시 즉시 제거)
+description: 더미데이터 사용 금지 - 항상 실제 데이터베이스 연결 사용
+globs: src/**/*.{ts,tsx,js,jsx}
+alwaysApply: true
+---

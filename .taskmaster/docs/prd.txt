@@ -1,0 +1,81 @@
+<context>
+# Overview  
+나는솔로 뉴스 허브는 '나는 SOLO' 및 출연자 관련 언론 기사와 이슈를 자동으로 수집·정제·클러스터링하여 한 곳에서 빠르게 볼 수 있는 뉴스 플랫폼입니다. 시청자들이 흩어져 있는 관련 뉴스를 일일이 찾아다닐 필요 없이, 대표 기사와 관련 기사들을 클러스터 뷰로 맥락을 즉시 파악할 수 있도록 합니다.
+
+# Core Features  
+- **자동 뉴스 수집**: 1시간마다 '나는솔로', '나는 솔로', '나솔', 출연자명/닉네임 키워드로 뉴스 수집
+- **스마트 클러스터링**: 대표 기사 + 관련 기사들을 묶어서 맥락 있는 뷰 제공  
+- **빠른 필터링**: 출연자, 기간, 매체 기준으로 원하는 뉴스만 빠르게 검색
+- **중복 제거**: article_url 기준으로 중복 기사 자동 제거
+- **실시간 업데이트**: 최신 이슈와 기사들을 실시간으로 업데이트
+
+# User Experience  
+- **주요 사용자**: 나는솔로 시청자/팬, 커뮤니티 운영자, 기자/블로거, 마케터
+- **핵심 사용 플로우**: 홈 피드에서 최신 클러스터 확인 → 관심 기사 클러스터 클릭 → 대표 기사와 관련 기사들 한번에 확인
+- **UI/UX 고려사항**: 클러스터 카드 형태로 직관적 표시, 모바일 최적화, 빠른 로딩 속도
+</context>
+<PRD>
+# Technical Architecture  
+- **Frontend**: Next.js 15.4.6 + TypeScript + Tailwind CSS
+- **Backend**: Supabase (Database + Edge Functions)
+- **데이터 수집**: 네이버 뉴스 API 우선, 실패 시 HTML 백업 파서
+- **스케줄링**: Supabase Scheduled Edge Functions (1시간 간격, Asia/Seoul 기준)
+- **데이터베이스**: PostgreSQL (Supabase)
+- **인증/보안**: Supabase Secrets로 API 키 관리
+
+**최소 데이터 스키마**:
+- id (uuid), title (text), article_url (text, unique)  
+- source (text), published_at (timestamptz, UTC), thumbnail_url (text)
+- cluster_id (text, nullable), summary (text), keywords (text[])
+- cast_members (text[])
+
+# Development Roadmap  
+**Phase 1 - MVP 기본 수집 시스템**
+- Supabase 프로젝트 설정 및 데이터베이스 스키마 구성
+- 네이버 뉴스 API 연동 및 기본 수집 로직 구현
+- Edge Function 기반 스케줄링 시스템 구축
+- 기본적인 데이터 정규화 및 중복 제거 로직
+
+**Phase 2 - 웹 인터페이스 구축**  
+- Next.js 프론트엔드 기본 구조 설정
+- 홈 피드 화면 (클러스터 카드 뷰) 구현
+- 기본 API 엔드포인트 구현 (/api/feed, /api/cluster, /api/search)
+- 반응형 디자인 및 모바일 최적화
+
+**Phase 3 - 고급 기능 및 최적화**
+- 클러스터링 알고리즘 구현 (docid 기반)
+- 검색 및 필터링 기능 고도화
+- 성능 최적화 및 캐싱 전략
+- 사용자 경험 개선 및 UI/UX 폴리싱
+
+# Logical Dependency Chain
+1. **기반 인프라 구축**: Supabase 설정 → 데이터베이스 스키마 → API 키 설정
+2. **데이터 수집 파이프라인**: 네이버 API 연동 → HTML 파서 백업 → 스케줄링 시스템
+3. **데이터 처리**: 정규화 로직 → 중복 제거 → 클러스터링
+4. **프론트엔드 기반**: Next.js 설정 → 기본 API → 홈 피드 화면
+5. **사용자 기능**: 검색/필터 → 상세 뷰 → 최적화
+
+각 단계는 독립적으로 테스트 가능하며, 이전 단계의 완성 후 다음 단계로 진행하여 안정적인 개발이 가능합니다.
+
+# Risks and Mitigations  
+**기술적 도전과제**:
+- 네이버 API 레이트 리밋 → 지수 백오프 및 호출 상한 설정
+- HTML 파싱 안정성 → 백업 파서 및 에러 핸들링 강화
+- 클러스터링 정확도 → docid 활용 및 점진적 알고리즘 개선
+
+**MVP 구축 전략**:
+- 핵심 기능부터 우선 구현하여 빠른 검증
+- 사용자 피드백을 통한 점진적 개선
+- 확장 가능한 아키텍처로 설계하여 추후 기능 추가 용이
+
+# Appendix  
+**API 계약**:
+- GET /api/feed - 쿼리: cast, from, to, source, sort, page, size
+- GET /api/cluster/:id - 대표 + 관련 기사 세트  
+- GET /api/search - 쿼리: q, cast, from, to, page, size
+
+**기술 명세**:
+- 모든 시간은 ISO8601(UTC)로 반환, 클라이언트에서 KST 변환
+- 비밀키/토큰은 Supabase Secrets로만 관리
+- 레이트리밋 준수 및 안정적인 수집을 위한 에러 핸들링
+</PRD>
