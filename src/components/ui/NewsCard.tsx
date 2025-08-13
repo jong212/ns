@@ -1,6 +1,7 @@
 import { NewsArticle } from '@/lib/types';
 import { formatDistanceToNow, extractDomain, truncateText } from '@/lib/utils';
 import Image from 'next/image';
+import { FavoriteButton } from '@/components/FavoriteButton';
 
 interface NewsCardProps {
   article: NewsArticle;
@@ -26,19 +27,32 @@ export function NewsCard({ article, onClick }: NewsCardProps) {
       <div className="absolute inset-0 bg-gradient-to-br from-pink-50/50 to-purple-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
       
       {/* 썸네일 이미지 */}
-      {article.thumbnail_url && (
-        <div className="relative w-full h-48 overflow-hidden">
+      <div className="relative w-full h-48 overflow-hidden">
+        {article.thumbnail_url ? (
           <Image
             src={article.thumbnail_url}
             alt={article.title}
             fill
             className="object-cover group-hover:scale-110 transition-transform duration-500"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            onError={(e) => {
+              // 이미지 로드 실패 시 기본 이미지로 대체
+              const target = e.target as HTMLImageElement;
+              target.src = '/default-news-thumbnail.jpg';
+            }}
           />
-          {/* 이미지 오버레이 */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-        </div>
-      )}
+        ) : (
+          // 썸네일이 없는 경우 기본 이미지 표시
+          <div className="w-full h-full bg-gradient-to-br from-pink-100 via-purple-100 to-pink-200 flex items-center justify-center">
+            <div className="text-center">
+              <div className="text-4xl mb-2">📰</div>
+              <div className="text-sm text-gray-600 font-medium">나는솔로 뉴스</div>
+            </div>
+          </div>
+        )}
+        {/* 이미지 오버레이 */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+      </div>
 
       <div className="relative p-6">
         {/* 제목 - 이미지 아래에 배치하고 가독성 개선 */}
@@ -111,11 +125,17 @@ export function NewsCard({ article, onClick }: NewsCardProps) {
           </div>
         </div>
 
-        {/* 호버 효과 - 읽기 버튼 */}
-        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
+        {/* 호버 효과 - 읽기 버튼과 즐겨찾기 버튼 */}
+        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0 flex space-x-2">
           <div className="bg-white/90 backdrop-blur-sm rounded-full p-2 shadow-lg">
             <span className="text-pink-600 text-sm font-medium">📖 읽기</span>
           </div>
+          {article.cast_members && article.cast_members.length > 0 && (
+            <FavoriteButton 
+              castMember={article.cast_members[0]} 
+              className="shadow-lg"
+            />
+          )}
         </div>
       </div>
     </div>

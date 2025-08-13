@@ -4,6 +4,7 @@ import { NewsCard } from '@/components/ui/NewsCard';
 import { useNews } from '@/hooks/useNews';
 import { useState } from 'react';
 import Link from 'next/link';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 export default function Home() {
   const { articles, loading, error, total, hasMore, refetch, loadMore } = useNews();
@@ -68,6 +69,11 @@ export default function Home() {
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="text-center">
+            {/* 다크모드 토글 버튼 */}
+            <div className="absolute top-4 right-4">
+              <ThemeToggle />
+            </div>
+            
             <div className="inline-flex items-center justify-center w-20 h-20 bg-white/20 rounded-full mb-6 backdrop-blur-sm">
               <span className="text-3xl">💕</span>
             </div>
