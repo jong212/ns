@@ -6,6 +6,8 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { FavoritesButton } from '@/components/FavoritesButton';
+import { ChatWidget } from '@/components/ChatWidget';
+import { SiteBookmarkButton } from '@/components/SiteBookmarkButton';
 
 export default function Home() {
   const { articles, loading, error, total, hasMore, refetch, loadMore } = useNews();
@@ -72,6 +74,7 @@ export default function Home() {
           <div className="text-center">
             {/* 다크모드 토글 버튼과 즐겨찾기 버튼 */}
             <div className="absolute top-4 right-4 flex space-x-2">
+              <SiteBookmarkButton />
               <FavoritesButton />
               <ThemeToggle />
             </div>
@@ -219,6 +222,9 @@ export default function Home() {
           </div>
         )}
       </main>
+
+      {/* 채팅 위젯 */}
+      <ChatWidget />
     </div>
   );
 }

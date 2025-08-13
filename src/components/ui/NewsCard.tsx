@@ -1,7 +1,10 @@
+"use client";
 import { NewsArticle } from '@/lib/types';
 import { formatDistanceToNow, extractDomain, truncateText } from '@/lib/utils';
 import Image from 'next/image';
-import { FavoriteButton } from '@/components/FavoriteButton';
+import { BookmarkPlus } from 'lucide-react';
+import { useCallback } from 'react';
+import { useFavorites } from '@/hooks/useFavorites';
 
 interface NewsCardProps {
   article: NewsArticle;
@@ -9,6 +12,28 @@ interface NewsCardProps {
 }
 
 export function NewsCard({ article, onClick }: NewsCardProps) {
+  const { isFavorite, toggleFavorite } = useFavorites();
+
+  const handleBookmark = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      // 토글 로컬 즐겨찾기 (브라우저 저장)
+      toggleFavorite(article);
+
+      // 브라우저 북마크 시도: 대부분의 현대 브라우저는 자동 추가를 막음
+      // 사용자에게 단축키 안내 및 URL 복사 제공
+      const isMac = navigator.platform.toUpperCase().includes('MAC');
+      const shortcut = isMac ? 'Cmd + D' : 'Ctrl + D';
+      await navigator.clipboard.writeText(article.article_url);
+      // 간단 안내
+      alert(`북마크를 추가하려면 ${shortcut} 를 눌러주세요.\n링크가 클립보드에 복사되었습니다.`);
+    } catch {
+      // Clipboard 실패 시에도 안내만 표시
+      const isMac = navigator.platform.toUpperCase().includes('MAC');
+      const shortcut = isMac ? 'Cmd + D' : 'Ctrl + D';
+      alert(`북마크를 추가하려면 ${shortcut} 를 눌러주세요.`);
+    }
+  }, [article, toggleFavorite]);
   const handleClick = () => {
     if (onClick) {
       onClick(article);
@@ -27,29 +52,40 @@ export function NewsCard({ article, onClick }: NewsCardProps) {
       <div className="absolute inset-0 bg-gradient-to-br from-pink-50/50 to-purple-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
       
       {/* 썸네일 이미지 */}
-      <div className="relative w-full h-48 overflow-hidden">
-        {article.thumbnail_url ? (
-          <Image
-            src={article.thumbnail_url}
-            alt={article.title}
-            fill
-            className="object-cover group-hover:scale-110 transition-transform duration-500"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            onError={(e) => {
-              // 이미지 로드 실패 시 기본 이미지로 대체
-              const target = e.target as HTMLImageElement;
-              target.src = '/default-news-thumbnail.jpg';
-            }}
-          />
-        ) : (
-          // 썸네일이 없는 경우 기본 이미지 표시
-          <div className="w-full h-full bg-gradient-to-br from-pink-100 via-purple-100 to-pink-200 flex items-center justify-center">
-            <div className="text-center">
-              <div className="text-4xl mb-2">📰</div>
-              <div className="text-sm text-gray-600 font-medium">나는솔로 뉴스</div>
-            </div>
-          </div>
-        )}
+                  <div className="relative w-full h-48 overflow-hidden">
+              {article.thumbnail_url ? (
+                <Image
+                  src={article.thumbnail_url}
+                  alt={article.title}
+                  fill
+                  className="object-cover group-hover:scale-110 transition-transform duration-500"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  onError={(e) => {
+                    // 이미지 로드 실패 시 기본 이미지로 대체
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    const parent = target.parentElement;
+                    if (parent) {
+                      parent.innerHTML = `
+                        <div class="w-full h-full bg-gradient-to-br from-pink-100 via-purple-100 to-pink-200 flex items-center justify-center">
+                          <div class="text-center">
+                            <div class="text-4xl mb-2">📰</div>
+                            <div class="text-sm text-gray-600 font-medium">나는솔로 뉴스</div>
+                          </div>
+                        </div>
+                      `;
+                    }
+                  }}
+                />
+              ) : (
+                // 썸네일이 없는 경우 기본 이미지 표시 (네트워크 요청 없음)
+                <div className="w-full h-full bg-gradient-to-br from-pink-100 via-purple-100 to-pink-200 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="text-4xl mb-2">📰</div>
+                    <div className="text-sm text-gray-600 font-medium">나는솔로 뉴스</div>
+                  </div>
+                </div>
+              )}
         {/* 이미지 오버레이 */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
       </div>
@@ -117,26 +153,28 @@ export function NewsCard({ article, onClick }: NewsCardProps) {
             )}
           </div>
           
-          <div className="text-xs text-gray-500 font-medium">
-            {article.published_at 
-              ? formatDistanceToNow(article.published_at)
-              : '날짜 미상'
-            }
+          <div className="flex items-center gap-2">
+            <div className="text-xs text-gray-500 font-medium">
+              {article.published_at 
+                ? formatDistanceToNow(article.published_at)
+                : '날짜 미상'
+              }
+            </div>
+            <button
+              onClick={handleBookmark}
+              className={`p-1.5 rounded-full transition-all duration-200 ${
+                isFavorite(article.id)
+                  ? 'bg-pink-600 text-white hover:bg-pink-700'
+                  : 'bg-white/60 text-gray-700 hover:bg-white'
+              }`}
+              aria-label={`${isFavorite(article.id) ? '즐겨찾기 해제' : '즐겨찾기 추가'}`}
+            >
+              <BookmarkPlus className={`h-4 w-4 ${isFavorite(article.id) ? 'fill-current' : ''}`} />
+            </button>
           </div>
         </div>
 
-        {/* 호버 효과 - 읽기 버튼과 즐겨찾기 버튼 */}
-        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0 flex space-x-2">
-          <div className="bg-white/90 backdrop-blur-sm rounded-full p-2 shadow-lg">
-            <span className="text-pink-600 text-sm font-medium">📖 읽기</span>
-          </div>
-          {article.cast_members && article.cast_members.length > 0 && (
-            <FavoriteButton 
-              castMember={article.cast_members[0]} 
-              className="shadow-lg"
-            />
-          )}
-        </div>
+        {/* 상단 호버 액션 제거 (읽기/북마크 버튼 숨김) */}
       </div>
     </div>
   );
