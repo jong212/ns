@@ -3,6 +3,7 @@
 import { NewsCard } from '@/components/ui/NewsCard';
 import { useNews } from '@/hooks/useNews';
 import { useState } from 'react';
+import Link from 'next/link';
 
 export default function Home() {
   const { articles, loading, error, total, hasMore, refetch, loadMore } = useNews();
@@ -76,6 +77,14 @@ export default function Home() {
             <p className="text-xl text-white/90 max-w-2xl mx-auto leading-relaxed">
               나는솔로 관련 최신 뉴스를 한눈에 확인하세요
             </p>
+            <div className="mt-6">
+              <Link
+                href="/guide"
+                className="inline-flex items-center px-6 py-3 bg-white/20 backdrop-blur-sm text-white font-semibold rounded-xl hover:bg-white/30 transition-all duration-200 border border-white/30"
+              >
+                📖 나는솔로 가이드 보기
+              </Link>
+            </div>
             <div className="mt-6 flex justify-center space-x-4 text-white/80">
               <div className="flex items-center space-x-2">
                 <div className="w-2 h-2 bg-white/60 rounded-full animate-pulse"></div>
