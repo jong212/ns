@@ -1,0 +1,82 @@
+# Database Design Patterns
+
+## **테이블 구조**
+```sql
+-- ✅ DO: articles 테이블
+CREATE TABLE articles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  article_url TEXT UNIQUE NOT NULL,
+  canonical_url TEXT,
+  source TEXT,
+  summary TEXT,
+  thumbnail_url TEXT,
+  author TEXT,
+  published_at TIMESTAMPTZ,
+  fetched_at TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  status TEXT DEFAULT 'pending',
+  raw_meta JSONB,
+  hash TEXT NOT NULL,
+  
+  -- 나는솔로 전용 컬럼
+  cluster_id TEXT,
+  keywords TEXT[],
+  cast_members TEXT[]
+);
+```
+
+## **인덱스 전략**
+```sql
+-- ✅ DO: 성능 최적화
+CREATE INDEX idx_articles_published_at ON articles(published_at);
+CREATE INDEX idx_articles_cluster_id ON articles(cluster_id);
+CREATE INDEX idx_articles_source ON articles(source);
+CREATE INDEX idx_articles_status ON articles(status);
+
+-- 배열 필드용 GIN 인덱스
+CREATE INDEX idx_articles_keywords ON articles USING GIN(keywords);
+CREATE INDEX idx_articles_cast_members ON articles USING GIN(cast_members);
+```
+
+## **쿼리 패턴**
+```sql
+-- ✅ DO: 효율적인 검색
+SELECT * FROM articles 
+WHERE published_at >= NOW() - INTERVAL '7 days'
+AND status = 'collected'
+ORDER BY published_at DESC
+LIMIT 20;
+
+-- ✅ DO: 출연자 검색
+SELECT * FROM articles 
+WHERE '김지원' = ANY(cast_members)
+AND published_at >= NOW() - INTERVAL '30 days';
+
+-- ✅ DO: 키워드 검색
+SELECT * FROM articles 
+WHERE keywords && ARRAY['나는솔로', '연애']
+ORDER BY published_at DESC;
+```
+
+## **페이지네이션**
+```sql
+-- ✅ DO: offset 기반 페이지네이션
+SELECT * FROM articles 
+WHERE published_at >= NOW() - INTERVAL '7 days'
+ORDER BY published_at DESC
+LIMIT 20 OFFSET 0;
+```
+
+## **마이그레이션 패턴**
+```sql
+-- ✅ DO: 안전한 컬럼 추가
+ALTER TABLE articles 
+ADD COLUMN IF NOT EXISTS cluster_id TEXT,
+ADD COLUMN IF NOT EXISTS keywords TEXT[],
+ADD COLUMN IF NOT EXISTS cast_members TEXT[];
+
+-- ✅ DO: 기본값 설정
+UPDATE articles SET keywords = ARRAY[]::TEXT[] WHERE keywords IS NULL;
+UPDATE articles SET cast_members = ARRAY[]::TEXT[] WHERE cast_members IS NULL;
+```

@@ -1,0 +1,104 @@
+---
+description: 나는솔로 뉴스 허브 플레이북 — 상세 규칙 모음(수집 품질, 중복 차단, 썸네일, 배포, 관측)
+globs: **/*
+alwaysApply: true
+---
+
+# Project Playbook
+
+## 1) 수집 품질(News Fetch Quality)
+- 키워드: `나는솔로`, `나솔`
+- 관련성 필터(제목/요약):
+  - 허용: `(나는\s*솔로)` 또는 단독 어휘 `나솔`
+  - 차단: 단순 `솔로`만 등장하는 기사
+- 코드 참조: [scheduled-news-fetch/index.ts](mdc:supabase/functions/scheduled-news-fetch/index.ts)
+
+## 2) 중복 차단(24h Embedding)
+- 모델: 임베딩 전용 1개(OpenAI `text-embedding-3-small` 권장)
+- 임계치: 코사인 0.93(운영 중 0.90~0.95 튜닝)
+- 시간창: 최근 24h, 비교 상한 `MAX_COMPARE=300`
+- 스키마: `articles.embedding vector(1536)`, ivfflat(cosine) 인덱스
+- 정책: 중복이면 저장 스킵, 비중복이면 임베딩 저장
+- 가이드: [project-guide.mdc](mdc:.cursor/rules/project-guide.mdc)
+
+## 3) 썸네일 정책(Thumbnail Enrichment)
+- 흐름: 저장 완료 후 비동기 트리거 → `enrich-thumbnails`
+- 대상: `thumbnail_url IS NULL` 그리고 `thumbnail_status IS NULL|''`
+- 성공: `thumbnail_status='success'`, 실패: `thumbnail_status='failed'`(재시도 안 함)
+- 동시성: 5개, 배치 업데이트, limit 기본 20(요청 body로 조절)
+- 코드: [enrich-thumbnails/index.ts](mdc:supabase/functions/enrich-thumbnails/index.ts)
+
+## 4) 배포 규칙(Deploy)
+- 변경 대상: `supabase/functions/**/*.ts`, `supabase/migrations/*.sql`
+- 원칙: 수정 즉시 배포/적용 시도(MCP 우선, 불가 시 CLI)
+- CLI 예시:
+  - `npx supabase db push`
+  - `npx supabase functions deploy scheduled-news-fetch --project-ref <ref>`
+  - `npx supabase functions deploy enrich-thumbnails --project-ref <ref>`
+
+## 5) 관측/로그(Observability)
+- 함수 로그 테이블: `function_logs(function_name, status, execution_time, error_message, created_at)`
+- Edge Logs에서 확인해야 할 키 메세지
+  - `enrich-thumbnails 트리거 완료`
+  - `데이터베이스 저장 실패:` / `임베딩 생성 실패:`
+- 쿼리 캐시 이슈 시: `notify pgrst, 'reload schema'`
+
+## 6) 환경 변수(Secrets)
+- Edge Functions: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, `OPENAI_API_KEY`
+- 프론트: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+---
+
+# (Merged) Backend Implementation Patterns
+
+## Edge Function 표준 구조
+```ts
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+Deno.serve(async (req: Request) => {
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+  };
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  try {
+    // ...
+    return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: (error as Error).message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+  }
+});
+```
+
+## 외부 API 호출(네이버 뉴스)
+```ts
+const res = await fetch(`https://openapi.naver.com/v1/search/news.json?query=${encodeURIComponent(keyword)}&display=10&sort=date`, {
+  headers: {
+    'X-Naver-Client-Id': Deno.env.get('NAVER_CLIENT_ID')!,
+    'X-Naver-Client-Secret': Deno.env.get('NAVER_CLIENT_SECRET')!,
+  }
+});
+if (!res.ok) {/* 로그 후 건너뜀 */}
+```
+
+## DB 저장(UPSERT) & 에러 처리
+```ts
+const { data, error } = await supabase
+  .from('articles')
+  .upsert(rows, { onConflict: 'article_url' })
+  .select();
+if (error) throw new Error(`데이터베이스 저장 실패: ${error.message}`);
+```
+
+## HTML/유틸(요약)
+- `decodeHtmlEntities(text)`로 HTML 엔티티 정리
+- `extractSource(url)`로 도메인 추출
+- `generateHash(url)`로 SHA-256 해시 생성
+
+---
+
+# (Reference) Frontend Contract
+- API 응답 스키마는 가이드의 "API 응답 형식" 섹션을 기준으로 유지: [project-guide.mdc](mdc:.cursor/rules/project-guide.mdc)
+- 필터/페이지네이션 파라미터: cast, source, from, to, limit, offset

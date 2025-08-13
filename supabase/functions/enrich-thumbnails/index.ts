@@ -78,20 +78,22 @@ async function fetchThumbnail(articleUrl: string, timeoutMs = 10000): Promise<st
   }
 }
 
-async function enrichBatch(supabase: any, limit = 20): Promise<{ scanned: number; updated: number } | { error: string } > {
-  // 처리 대상 가져오기
+async function enrichBatch(supabase: any, limit = 20): Promise<{ scanned: number; updated: number; failed: number } | { error: string } > {
+  // 처리 대상: 썸네일 미지정 + 실패 이력 없음
   const { data: rows, error: selectError } = await supabase
     .from('articles')
     .select('id, article_url')
     .is('thumbnail_url', null)
+    .or('thumbnail_status.is.null,thumbnail_status.eq.')
     .order('published_at', { ascending: false })
     .limit(limit);
 
   if (selectError) return { error: `select error: ${selectError.message}` };
-  if (!rows || rows.length === 0) return { scanned: 0, updated: 0 };
+  if (!rows || rows.length === 0) return { scanned: 0, updated: 0, failed: 0 };
 
   const concurrency = 5;
   const updates: { id: string; thumbnail_url: string }[] = [];
+  const failures: string[] = [];
 
   for (let i = 0; i < rows.length; i += concurrency) {
     const chunk = rows.slice(i, i + concurrency);
@@ -99,6 +101,7 @@ async function enrichBatch(supabase: any, limit = 20): Promise<{ scanned: number
       chunk.map(async (row: ArticleRow) => {
         const thumb = await fetchThumbnail(row.article_url);
         if (thumb) return { id: row.id, thumbnail_url: thumb };
+        failures.push(row.id);
         return null;
       })
     );
@@ -107,7 +110,6 @@ async function enrichBatch(supabase: any, limit = 20): Promise<{ scanned: number
 
   let updated = 0;
   if (updates.length > 0) {
-    // per-row 업데이트로 NOT NULL 제약 회피 (존재하는 행만 업데이트)
     const chunkSize = 5;
     for (let i = 0; i < updates.length; i += chunkSize) {
       const chunk = updates.slice(i, i + chunkSize);
@@ -115,7 +117,7 @@ async function enrichBatch(supabase: any, limit = 20): Promise<{ scanned: number
         chunk.map(async (u) => {
           const { data, error } = await supabase
             .from('articles')
-            .update({ thumbnail_url: u.thumbnail_url })
+            .update({ thumbnail_url: u.thumbnail_url, thumbnail_status: 'success' })
             .eq('id', u.id)
             .select('id');
           if (!error) return data?.length || 0;
@@ -126,7 +128,21 @@ async function enrichBatch(supabase: any, limit = 20): Promise<{ scanned: number
     }
   }
 
-  return { scanned: rows.length, updated };
+  let failed = 0;
+  if (failures.length > 0) {
+    const chunkSize = 10;
+    for (let i = 0; i < failures.length; i += chunkSize) {
+      const chunk = failures.slice(i, i + chunkSize);
+      const { data, error } = await supabase
+        .from('articles')
+        .update({ thumbnail_status: 'failed' })
+        .in('id', chunk)
+        .select('id');
+      if (!error) failed += data?.length || 0;
+    }
+  }
+
+  return { scanned: rows.length, updated, failed };
 }
 
 Deno.serve(async (req: Request) => {
