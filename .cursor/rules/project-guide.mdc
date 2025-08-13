@@ -60,15 +60,35 @@ src/
 ## **데이터 처리 단계**
 1. **네이버 API 호출** → 2. **HTML 정규화** → 3. **출연자 추출** → 4. **중복 제거** → 5. **DB 저장**
 
-## 임베딩 기반 중복 기사 차단(최근 24시간 비교)
-- **목적**: 수집 시점에 “최근 24시간” 기사와 비교해 중복이면 저장을 건너뛴다.
-- **범위**: 수집 파이프라인(scheduled-news-fetch)에서 저장 직전 한 번만 검사.
-- **모델**: 채팅 모델 없이 임베딩 전용 모델 1개 사용(예: OpenAI text-embedding-3-small). 다국어 지원, 저비용.
-- **임계치**: 코사인 유사도 기준 값으로 판정(기본 0.93, 데이터 보며 0.90~0.95 튜닝).
-- **환경 변수**: `OPENAI_API_KEY`(혹은 선택한 임베딩 제공자 키)만 필요.
-- **스키마(권장)**: `embedding vector(1536)` 컬럼과 pgvector 인덱스(IVFFLAT, cosine) 추가.
-- **운영 정책**: 중복이면 저장 스킵, 비중복이면 본문과 함께 임베딩 저장(다음 비교에 활용).
+## **중복 기사 차단 시스템 (Content Hash 기반)**
+- **목적**: 수집 시점에 "최근 24시간" 기사와 비교해 중복이면 저장을 건너뛴다.
+- **방식**: 제목 + 요약을 SHA-256으로 해시화하여 정확한 매칭
+- **임계치**: 완전히 동일한 content_hash만 중복으로 판정
+- **스키마**: `content_hash TEXT` 컬럼과 인덱스 추가
+- **운영 정책**: 중복이면 저장 스킵, 비중복이면 content_hash와 함께 저장
+- **장점**: 외부 API 의존성 없음, 빠른 성능, 정확한 중복 판정
 
+## **허깅페이스 관련 주의사항**
+- **사용 금지**: 허깅페이스 API는 안정성 문제로 사용하지 않음
+- **대안**: content_hash 기반 중복 방지 사용
+- **기존 코드**: embedding 관련 코드 모두 제거됨
+- **마이그레이션**: embedding 컬럼 제거, content_hash 컬럼 추가
+
+## **Cron 작업 설정 규칙**
+- **확장 설치**: `pg_cron`과 `http` 확장 필수
+- **인증 방식**: Edge Function에서 다중 인증 지원
+  - Authorization 헤더
+  - X-Cron-Auth 헤더
+  - cron 쿼리 파라미터
+- **스케줄 표현식**: `0 * * * *` (매시 정각)
+- **실행 확인**: function_logs 테이블에서 성공/실패 로그 확인
+- **문제 해결**: Edge Function 로그에서 오류 상세 확인
+
+## **Edge Function 인증 개선**
+- **다중 인증**: cron 호출 시 다양한 인증 방식 지원
+- **유연성**: Authorization 헤더 없어도 X-Cron-Auth나 쿼리 파라미터로 인증 가능
+- **보안**: 여전히 인증된 호출만 허용
+- **디버깅**: 인증 실패 시 명확한 오류 메시지 제공
 
 ## **API 응답 형식**
 ```typescript
@@ -97,6 +117,7 @@ interface NewsArticle {
   cast_members?: string[];
   cluster_id?: string;
   hash: string;
+  content_hash?: string; // 제목+요약 기반 중복 판정용 해시
 }
 ```
 
@@ -110,3 +131,59 @@ alwaysApply: false
 - DB 마이그레이션(`supabase/migrations/*.sql`) 추가/수정 시 즉시 적용한다.
 - 기본 순서: MCP로 실행 가능하면 MCP 우선 → 불가 시 CLI 명령어 안내.
 - 상세 규칙은 `deploy-on-change.mdc`를 따른다.
+
+## **scheduled-news-fetch Edge Function 규칙**
+
+### **핵심 기능**
+- **자동 뉴스 수집**: 네이버 뉴스 API에서 "나는솔로", "나솔" 키워드로 검색
+- **중복 방지**: content_hash 기반 24시간 내 중복 기사 차단
+- **출연자 추출**: 정규식으로 한국어 이름 패턴 매칭
+- **썸네일 보강**: 저장 후 enrich-thumbnails 함수 자동 호출
+
+### **인증 방식**
+- **JWT 인증 해제 필수**: `verify_jwt: false` 설정 필요
+- **Dashboard 설정**: Edge Functions → scheduled-news-fetch → Settings → "Verify JWT" 체크 해제
+- **CLI 설정**: `supabase functions update scheduled-news-fetch --no-verify-jwt`
+- **문제 증상**: 401 Unauthorized 오류 발생 시 JWT 인증 해제 필요
+
+### **중복 방지 로직**
+- **content_hash 생성**: 제목 + 요약을 SHA-256 해시화
+- **비교 범위**: 최근 24시간 기사 (MAX_COMPARE=300개)
+- **정확 매칭**: 완전히 동일한 content_hash만 중복으로 판정
+- **성능**: 인덱스 활용으로 빠른 검색
+
+### **데이터 처리 흐름**
+1. **키워드 검색**: "나는솔로", "나솔" 각각 10개씩
+2. **관련성 필터**: 제목/요약에 키워드 포함 여부 확인
+3. **중복 확인**: content_hash 기반 24시간 내 중복 검사
+4. **출연자 추출**: 정규식으로 "씨", "님" 패턴 매칭
+5. **DB 저장**: upsert로 중복 URL 방지
+6. **썸네일 보강**: enrich-thumbnails 함수 트리거
+
+### **환경 변수 필수**
+- `NAVER_CLIENT_ID`: 네이버 API 클라이언트 ID
+- `NAVER_CLIENT_SECRET`: 네이버 API 클라이언트 시크릿
+- `SUPABASE_URL`: Supabase 프로젝트 URL
+- `SUPABASE_SERVICE_ROLE_KEY`: Supabase 서비스 롤 키
+
+### **로그 및 모니터링**
+- **function_logs 테이블**: 성공/실패 로그 자동 저장
+- **실행 시간 측정**: 각 단계별 성능 모니터링
+- **오류 처리**: 상세한 오류 메시지와 스택 트레이스
+
+### **Cron 설정**
+- **스케줄**: `0 * * * *` (매시 정각)
+- **확장 필요**: `pg_cron`, `http` 확장 설치
+- **테스트**: 수동 실행으로 기능 확인 가능
+
+### **주의사항**
+- **허깅페이스 사용 금지**: 안정성 문제로 content_hash 방식 사용
+- **API 제한**: 네이버 API 호출 제한 고려
+- **메모리 사용**: 대량 데이터 처리 시 메모리 관리
+- **타임아웃**: 30초 내 완료되도록 최적화
+
+### **문제 해결 과정 (중요!)**
+- **401 오류 발생 시**: JWT 인증 해제 필요
+- **cron 실행 안됨**: Dashboard에서 cron 작업 설정 필요
+- **데이터 안들어옴**: Edge Function 로그 확인 후 JWT 설정 체크
+- **배포 후 테스트**: function_logs와 articles 테이블로 결과 확인

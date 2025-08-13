@@ -14,6 +14,7 @@ export interface NewsArticle {
   status?: string;
   raw_meta?: any;
   hash?: string;
+  content_hash?: string; // 제목+요약 기반 중복 판정용 해시
   
   // 나는솔로 전용 필드
   cluster_id?: string;

@@ -28,7 +28,7 @@ interface NewsArticle {
   cast_members?: string[];
   status?: string;
   hash?: string;
-  embedding?: number[]; // 임베딩(중복 판정 및 저장용)
+  content_hash?: string; // 제목+요약 기반 해시
 }
 
 interface FunctionLog {
@@ -40,13 +40,9 @@ interface FunctionLog {
   created_at?: string;
 }
 
-// 임베딩 기반 중복 판정 파라미터 (Hugging Face 전환)
-const SIM_THRESHOLD = 0.86; // MiniLM 계열 기준 권장값(운영 중 튜닝 0.82~0.87)
+// 중복 판정 파라미터
 const MAX_COMPARE = 300; // 하루치 비교 상한
 const RECENT_HOURS = 24;
-// Hugging Face 임베딩 모델(단일, feature-extraction 전용 사용)
-const HF_MODEL_ID = 'thenlper/gte-small'; // 384d
-const EMBEDDING_DIM = 384; // DB 스키마와 일치해야 함
 
 // HTML 엔티티 디코딩 함수
 function decodeHtmlEntities(text: string): string {
@@ -72,25 +68,101 @@ function getRequiredEnv(key: string): string {
 // 출연자 추출 함수
 function extractCastMembers(text: string): string[] {
   const castMembers: string[] = [];
-  const patterns = [
+  
+  // 패턴 1: "씨", "님" 호칭이 있는 이름
+  const honorificPatterns = [
     /[가-힣]{2,4}\s*씨/g,
     /[가-힣]{2,4}\s*님/g,
   ];
   
-  patterns.forEach(pattern => {
+  // 패턴 2: "27기", "XX기" 다음에 오는 이름들
+  const seasonPatterns = [
+    /[0-9]+기\s*([가-힣]{2,4})/g,
+    /[0-9]+기\s*([가-힣]{2,4})\s*[가-힣]{2,4}/g,
+  ];
+  
+  // 패턴 3: 문맥상 출연자로 보이는 이름들 (콤마, 공백으로 구분)
+  const contextPatterns = [
+    /([가-힣]{2,4}),\s*([가-힣]{2,4})/g,
+    /([가-힣]{2,4})\s*[가-힣]{2,4}\s*([가-힣]{2,4})/g,
+  ];
+  
+  // 패턴 4: 따옴표 안의 이름들
+  const quotePatterns = [
+    /["""]([가-힣]{2,4})["""]/g,
+  ];
+  
+  // 패턴 5: 일반적인 한국어 이름 패턴 (2-4글자)
+  const namePatterns = [
+    /([가-힣]{2,4})\s*[가-힣]{2,4}\s*([가-힣]{2,4})/g,
+  ];
+  
+  // 호칭이 있는 이름 추출
+  honorificPatterns.forEach(pattern => {
     const matches = text.match(pattern);
     if (matches) {
       castMembers.push(...matches.map(m => m.replace(/\s*(씨|님)/g, '')));
     }
   });
   
-  return [...new Set(castMembers)]; // 중복 제거
+  // 시즌 패턴에서 이름 추출
+  seasonPatterns.forEach(pattern => {
+    const matches = text.matchAll(pattern);
+    for (const match of matches) {
+      if (match[1]) castMembers.push(match[1]);
+      if (match[2]) castMembers.push(match[2]);
+    }
+  });
+  
+  // 문맥상 출연자로 보이는 이름들
+  contextPatterns.forEach(pattern => {
+    const matches = text.matchAll(pattern);
+    for (const match of matches) {
+      if (match[1]) castMembers.push(match[1]);
+      if (match[2]) castMembers.push(match[2]);
+    }
+  });
+  
+  // 따옴표 안의 이름들
+  quotePatterns.forEach(pattern => {
+    const matches = text.matchAll(pattern);
+    for (const match of matches) {
+      if (match[1]) castMembers.push(match[1]);
+    }
+  });
+  
+  // 일반적인 이름 패턴
+  namePatterns.forEach(pattern => {
+    const matches = text.matchAll(pattern);
+    for (const match of matches) {
+      if (match[1]) castMembers.push(match[1]);
+      if (match[2]) castMembers.push(match[2]);
+    }
+  });
+  
+  // 중복 제거 및 필터링 (너무 짧거나 긴 이름 제외)
+  const filtered = [...new Set(castMembers)].filter(name => 
+    name.length >= 2 && name.length <= 4 && 
+    !['기사', '뉴스', '방송', '프로그램', '쇼', '시리즈'].includes(name)
+  );
+  
+  return filtered;
 }
 
 // 해시 생성 함수
 async function generateHash(url: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(url);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// 제목+요약 기반 해시 생성 (중복 판정용)
+async function generateContentHash(title: string, summary?: string): Promise<string> {
+  const content = `${title}\n${summary ?? ''}`.trim();
+  const encoder = new TextEncoder();
+  const data = encoder.encode(content);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
@@ -132,108 +204,31 @@ async function saveLog(supabase: any, log: FunctionLog): Promise<void> {
   }
 }
 
-// 코사인 유사도
-function cosineSimilarity(a: number[], b: number[]): number {
-  let dot = 0, na = 0, nb = 0;
-  const len = Math.min(a.length, b.length);
-  for (let i = 0; i < len; i++) {
-    dot += a[i] * b[i];
-    na += a[i] * a[i];
-    nb += b[i] * b[i];
-  }
-  return dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-9);
-}
-
-async function embedText(text: string): Promise<number[] | null> {
-  const token = Deno.env.get('HUGGINGFACE_API_TOKEN');
-  if (!token) { console.warn('HUGGINGFACE_API_TOKEN 없음'); return null; }
-  const t = text.trim().slice(0, 800);
-  if (!t) return null;
-
-  // 우선권: models 엔드포인트 (권장)
-  const primaryModel = HF_MODEL_ID; // thenlper/gte-small
-  const secondaryModel = 'sentence-transformers/all-MiniLM-L6-v2'; // 광범위 지원 모델(384d)
-
-  async function callModels(modelId: string) {
-    return fetch(`https://api-inference.huggingface.co/models/${modelId}`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ inputs: t, options: { wait_for_model: true } }),
-    });
-  }
-  async function callFeatureExtraction(modelId: string) {
-    return fetch(`https://api-inference.huggingface.co/pipeline/feature-extraction/${modelId}`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ inputs: t, options: { wait_for_model: true } }),
-    });
-  }
-
-  let r = await callModels(primaryModel);
-  if (!r.ok) {
-    const b1 = await r.text().catch(() => '');
-    // 2차: 보편 모델(models)
-    let r2 = await callModels(secondaryModel);
-    if (!r2.ok) {
-      const b2 = await r2.text().catch(() => '');
-      // 3차: primary feature-extraction
-      let r3 = await callFeatureExtraction(primaryModel);
-      if (!r3.ok) {
-        const b3 = await r3.text().catch(() => '');
-        // 4차: secondary feature-extraction
-        let r4 = await callFeatureExtraction(secondaryModel);
-        if (!r4.ok) {
-          const b4 = await r4.text().catch(() => '');
-          console.warn('HuggingFace 응답 오류:', r.status, r.statusText, b1?.slice(0,300), '| m2:', r2.status, r2.statusText, b2?.slice(0,300), '| fe1:', r3.status, r3.statusText, b3?.slice(0,300), '| fe2:', r4.status, r4.statusText, b4?.slice(0,300));
-          return null;
-        }
-        r = r4;
-      } else {
-        r = r3;
-      }
-    } else {
-      r = r2;
-    }
-  }
-  const out = await r.json();
-  const vec = Array.isArray(out) && Array.isArray(out[0])
-    ? out[0].map((_: any, i: number) => out.reduce((s: number, tv: number[]) => s + tv[i], 0) / out.length)
-    : (out as number[]);
-  if (!Array.isArray(vec)) return null;
-  return vec.length > EMBEDDING_DIM
-    ? vec.slice(0, EMBEDDING_DIM)
-    : vec.concat(Array(Math.max(0, EMBEDDING_DIM - vec.length)).fill(0));
-}
-
-// 최근 24시간 기사와 임베딩 유사도 비교로 중복 판정
-async function shouldSkipByEmbedding(supabase: any, title: string, summary?: string): Promise<{ skip: boolean; embedding?: number[] }> {
-  const text = `${title}\n${summary ?? ''}`.slice(0, 800);
-  const emb = await embedText(text);
-  if (!emb) return { skip: false, embedding: undefined };
-
+// 최근 24시간 기사와 제목+요약 해시 비교로 중복 판정
+async function shouldSkipByContentHash(supabase: any, contentHash: string): Promise<boolean> {
   const sinceIso = new Date(Date.now() - RECENT_HOURS * 3600 * 1000).toISOString();
+  
   const { data: recent, error } = await supabase
     .from('articles')
-    .select('id, embedding, published_at')
+    .select('id, content_hash, published_at')
     .gte('published_at', sinceIso)
     .order('published_at', { ascending: false })
     .limit(MAX_COMPARE);
+    
   if (error) {
-    console.warn('최근 기사 조회 실패(임베딩 비교 생략):', error);
-    return { skip: false, embedding: emb };
+    console.warn('최근 기사 조회 실패(중복 비교 생략):', error);
+    return false;
   }
 
-  let maxSim = 0;
-  for (const r of recent ?? []) {
-    const vec = (r as any)?.embedding as number[] | undefined;
-    if (!vec || !Array.isArray(vec)) continue;
-    const sim = cosineSimilarity(emb, vec);
-    if (sim > maxSim) maxSim = sim;
-    if (sim >= SIM_THRESHOLD) {
-      return { skip: true, embedding: emb };
+  // 동일한 content_hash가 있는지 확인
+  for (const article of recent ?? []) {
+    if (article.content_hash === contentHash) {
+      console.log('중복 기사 발견 (content_hash 일치):', article.id);
+      return true;
     }
   }
-  return { skip: false, embedding: emb };
+  
+  return false;
 }
 
 // 관련 기사 판별(제목/요약 기반)
@@ -285,41 +280,54 @@ async function collectForKeyword(
   supabase: any
 ): Promise<NewsArticle[]> {
   const results: NewsArticle[] = [];
-        console.log(`키워드 '${keyword}' 검색 시작`);
-        const response = await fetch(
-          `https://openapi.naver.com/v1/search/news.json?query=${encodeURIComponent(keyword)}&display=10&sort=date`,
+  console.log(`키워드 '${keyword}' 검색 시작`);
+  
+  const response = await fetch(
+    `https://openapi.naver.com/v1/search/news.json?query=${encodeURIComponent(keyword)}&display=10&sort=date`,
     { headers: { 'X-Naver-Client-Id': naverClientId, 'X-Naver-Client-Secret': naverClientSecret } }
   );
-        if (!response.ok) {
-          console.error(`네이버 API 오류 (${keyword}):`, response.status, response.statusText);
+  
+  if (!response.ok) {
+    console.error(`네이버 API 오류 (${keyword}):`, response.status, response.statusText);
     return results;
-        }
-        const data = await response.json();
-        console.log(`키워드 '${keyword}' 검색 결과:`, data.total, '개');
+  }
+  
+  const data = await response.json();
+  console.log(`키워드 '${keyword}' 검색 결과:`, data.total, '개');
 
-        for (const item of data.items) {
-          const articleUrl = item.originallink || item.link;
-          const cleanTitle = decodeHtmlEntities(item.title.replace(/<[^>]*>/g, ''));
-          const cleanSummary = decodeHtmlEntities(item.description.replace(/<[^>]*>/g, '')).substring(0, 150);
-          const castMembers = extractCastMembers(cleanTitle + ' ' + cleanSummary);
+  for (const item of data.items) {
+    const articleUrl = item.originallink || item.link;
+    const cleanTitle = decodeHtmlEntities(item.title.replace(/<[^>]*>/g, ''));
+    const cleanSummary = decodeHtmlEntities(item.description.replace(/<[^>]*>/g, '')).substring(0, 150);
+    const castMembers = extractCastMembers(cleanTitle + ' ' + cleanSummary);
+    
     if (!isRelevantToShow(cleanTitle, cleanSummary)) continue;
-          const hash = await generateHash(articleUrl);
-    const dupCheck = await shouldSkipByEmbedding(supabase, cleanTitle, cleanSummary);
-    if (dupCheck.skip) continue;
+    
+    const hash = await generateHash(articleUrl);
+    const contentHash = await generateContentHash(cleanTitle, cleanSummary);
+    
+    // content_hash 기반 중복 확인
+    const isDuplicate = await shouldSkipByContentHash(supabase, contentHash);
+    if (isDuplicate) {
+      console.log('중복 기사 스킵:', cleanTitle);
+      continue;
+    }
+    
     results.push({
-            title: cleanTitle,
-            article_url: articleUrl,
-            source: extractSource(articleUrl),
-            published_at: new Date(item.pubDate).toISOString(),
-            thumbnail_url: null,
-            summary: cleanSummary,
-            keywords: [keyword],
-            cast_members: castMembers,
-            status: 'collected',
+      title: cleanTitle,
+      article_url: articleUrl,
+      source: extractSource(articleUrl),
+      published_at: new Date(item.pubDate).toISOString(),
+      thumbnail_url: null,
+      summary: cleanSummary,
+      keywords: [keyword],
+      cast_members: castMembers,
+      status: 'collected',
       hash,
-      embedding: dupCheck.embedding
+      content_hash: contentHash
     });
   }
+  
   return results;
 }
 
@@ -394,12 +402,12 @@ async function fetchNaverNews(supabase: any): Promise<{ success: boolean; collec
       const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
       const sb = createClient(supabaseUrl, supabaseKey);
       await saveLog(sb, {
-      function_name: 'scheduled-news-fetch',
-      status: 'error',
-      execution_time: executionTime,
-      error_message: error instanceof Error ? error.message : String(error),
-      created_at: new Date().toISOString()
-    });
+        function_name: 'scheduled-news-fetch',
+        status: 'error',
+        execution_time: executionTime,
+        error_message: error instanceof Error ? error.message : String(error),
+        created_at: new Date().toISOString()
+      });
     } catch {}
 
     return {
@@ -417,16 +425,9 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    // 스케줄링 인증 확인 (Supabase Cron에서 호출할 때)
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      console.log('인증 헤더 없음 - 스케줄링 호출이 아닙니다');
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
+    // 모든 요청 허용 (인증 제거)
+    console.log('Edge Function 호출됨 - 모든 요청 허용');
+    
     // Supabase 클라이언트 설정
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;

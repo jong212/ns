@@ -23,10 +23,11 @@ export default function Home() {
 
   if (loading && articles.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">뉴스를 불러오는 중...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-pink-200 border-t-pink-600 mx-auto mb-6"></div>
+          <p className="text-gray-600 text-lg font-medium">뉴스를 불러오는 중...</p>
+          <p className="text-gray-400 text-sm mt-2">잠시만 기다려주세요</p>
         </div>
       </div>
     );
@@ -34,13 +35,14 @@ export default function Home() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-red-500 mb-4">⚠️ 오류가 발생했습니다</div>
-          <p className="text-gray-600 mb-4">{error}</p>
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 flex items-center justify-center">
+        <div className="text-center bg-white rounded-2xl shadow-xl p-8 max-w-md mx-4">
+          <div className="text-red-500 text-4xl mb-4">⚠️</div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">오류가 발생했습니다</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
           <button
             onClick={refetch}
-            className="bg-pink-600 text-white px-4 py-2 rounded-lg hover:bg-pink-700 transition-colors"
+            className="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-6 py-3 rounded-xl hover:from-pink-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
           >
             다시 시도
           </button>
@@ -50,34 +52,58 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50">
       {/* 헤더 */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <header className="relative overflow-hidden">
+        {/* 배경 그라데이션 */}
+        <div className="absolute inset-0 bg-gradient-to-r from-pink-500 via-purple-500 to-pink-600"></div>
+        
+        {/* 장식 요소 */}
+        <div className="absolute top-0 left-0 w-full h-full">
+          <div className="absolute top-10 left-10 w-20 h-20 bg-white/10 rounded-full blur-xl"></div>
+          <div className="absolute top-20 right-20 w-32 h-32 bg-white/5 rounded-full blur-2xl"></div>
+          <div className="absolute bottom-10 left-1/4 w-16 h-16 bg-white/10 rounded-full blur-xl"></div>
+        </div>
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="text-center">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              💕 나는솔로 뉴스 허브
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-white/20 rounded-full mb-6 backdrop-blur-sm">
+              <span className="text-3xl">💕</span>
+            </div>
+            <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 drop-shadow-lg">
+              나는솔로 뉴스 허브
             </h1>
-            <p className="text-gray-600">
+            <p className="text-xl text-white/90 max-w-2xl mx-auto leading-relaxed">
               나는솔로 관련 최신 뉴스를 한눈에 확인하세요
             </p>
+            <div className="mt-6 flex justify-center space-x-4 text-white/80">
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-white/60 rounded-full animate-pulse"></div>
+                <span className="text-sm">실시간 업데이트</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-white/60 rounded-full animate-pulse" style={{animationDelay: '0.5s'}}></div>
+                <span className="text-sm">출연자별 필터</span>
+              </div>
+            </div>
           </div>
         </div>
       </header>
 
       {/* 필터 섹션 */}
-      <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex flex-wrap gap-2">
-            <span className="text-sm font-medium text-gray-700 flex items-center mr-2">
+      <div className="bg-white/80 backdrop-blur-sm border-b border-white/20 shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm font-semibold text-gray-700 flex items-center">
+              <span className="w-2 h-2 bg-pink-500 rounded-full mr-2"></span>
               출연자별 필터:
             </span>
             <button
               onClick={() => setSelectedCast('')}
-              className={`px-3 py-1 rounded-full text-sm transition-colors ${
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                 selectedCast === ''
-                  ? 'bg-pink-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-lg'
+                  : 'bg-white/70 text-gray-700 hover:bg-white hover:shadow-md border border-gray-200'
               }`}
             >
               전체
@@ -86,10 +112,10 @@ export default function Home() {
               <button
                 key={cast}
                 onClick={() => handleCastFilter(cast)}
-                className={`px-3 py-1 rounded-full text-sm transition-colors ${
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                   selectedCast === cast
-                    ? 'bg-pink-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-lg'
+                    : 'bg-white/70 text-gray-700 hover:bg-white hover:shadow-md border border-gray-200'
                 }`}
               >
                 {cast}
@@ -100,28 +126,35 @@ export default function Home() {
       </div>
 
       {/* 메인 컨텐츠 */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* 상태 표시 */}
-        <div className="mb-6 flex justify-between items-center">
-          <div className="text-sm text-gray-600">
-            총 <span className="font-semibold text-pink-600">{total}</span>개의 뉴스
-            {selectedCast && (
-              <span className="ml-2">
-                ({selectedCast} 관련)
+        <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex items-center space-x-4">
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg border border-white/20">
+              <span className="text-sm text-gray-600">
+                총 <span className="font-bold text-pink-600">{total}</span>개의 뉴스
               </span>
+            </div>
+            {selectedCast && (
+              <div className="bg-gradient-to-r from-pink-100 to-purple-100 rounded-xl px-4 py-2 border border-pink-200">
+                <span className="text-sm text-pink-700 font-medium">
+                  {selectedCast} 관련
+                </span>
+              </div>
             )}
           </div>
           <button
             onClick={refetch}
-            className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+            className="bg-white/80 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg border border-white/20 hover:bg-white hover:shadow-xl transition-all duration-200 flex items-center space-x-2"
           >
-            🔄 새로고침
+            <span className="text-gray-600">🔄</span>
+            <span className="text-sm text-gray-700 font-medium">새로고침</span>
           </button>
         </div>
 
         {/* 뉴스 그리드 */}
         {articles.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {articles
               .filter(article => 
                 !selectedCast || 
@@ -136,26 +169,35 @@ export default function Home() {
             }
           </div>
         ) : (
-          <div className="text-center py-12">
-            <div className="text-gray-400 text-6xl mb-4">📰</div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              뉴스가 없습니다
-            </h3>
-            <p className="text-gray-600">
-              아직 수집된 뉴스가 없거나 필터 조건에 맞는 뉴스가 없습니다.
-            </p>
+          <div className="text-center py-16">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-12 shadow-xl border border-white/20 max-w-md mx-auto">
+              <div className="text-gray-400 text-6xl mb-6">📰</div>
+              <h3 className="text-xl font-bold text-gray-900 mb-3">
+                뉴스가 없습니다
+              </h3>
+              <p className="text-gray-600 leading-relaxed">
+                아직 수집된 뉴스가 없거나 필터 조건에 맞는 뉴스가 없습니다.
+              </p>
+            </div>
           </div>
         )}
 
         {/* 더 보기 버튼 */}
         {hasMore && (
-          <div className="text-center mt-8">
+          <div className="text-center mt-12">
             <button
               onClick={loadMore}
               disabled={loading}
-              className="bg-pink-600 text-white px-6 py-3 rounded-lg hover:bg-pink-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-8 py-4 rounded-xl hover:from-pink-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none font-medium"
             >
-              {loading ? '로딩 중...' : '더 보기'}
+              {loading ? (
+                <div className="flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                  <span>로딩 중...</span>
+                </div>
+              ) : (
+                '더 보기'
+              )}
             </button>
           </div>
         )}
