@@ -5,6 +5,7 @@ import { useNews } from '@/hooks/useNews';
 import { useState } from 'react';
 import Link from 'next/link';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { FavoritesButton } from '@/components/FavoritesButton';
 
 export default function Home() {
   const { articles, loading, error, total, hasMore, refetch, loadMore } = useNews();
@@ -69,8 +70,9 @@ export default function Home() {
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="text-center">
-            {/* 다크모드 토글 버튼 */}
-            <div className="absolute top-4 right-4">
+            {/* 다크모드 토글 버튼과 즐겨찾기 버튼 */}
+            <div className="absolute top-4 right-4 flex space-x-2">
+              <FavoritesButton />
               <ThemeToggle />
             </div>
             

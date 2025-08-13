@@ -69,6 +69,19 @@ function getRequiredEnv(key: string): string {
 function extractCastMembers(text: string): string[] {
   const castMembers: string[] = [];
   
+  // 실제 나는솔로 출연자 목록
+  const actualCastMembers = [
+    '영수', '영호', '영식', '영철', '광수', '상철',
+    '순자', '영자', '정숙', '영숙', '옥순', '현숙'
+  ];
+  
+  // 텍스트에서 실제 출연자 이름 찾기
+  actualCastMembers.forEach(member => {
+    if (text.includes(member)) {
+      castMembers.push(member);
+    }
+  });
+  
   // 패턴 1: "씨", "님" 호칭이 있는 이름
   const honorificPatterns = [
     /[가-힣]{2,4}\s*씨/g,
@@ -92,16 +105,17 @@ function extractCastMembers(text: string): string[] {
     /["""]([가-힣]{2,4})["""]/g,
   ];
   
-  // 패턴 5: 일반적인 한국어 이름 패턴 (2-4글자)
-  const namePatterns = [
-    /([가-힣]{2,4})\s*[가-힣]{2,4}\s*([가-힣]{2,4})/g,
-  ];
-  
   // 호칭이 있는 이름 추출
   honorificPatterns.forEach(pattern => {
     const matches = text.match(pattern);
     if (matches) {
-      castMembers.push(...matches.map(m => m.replace(/\s*(씨|님)/g, '')));
+      const names = matches.map(m => m.replace(/\s*(씨|님)/g, ''));
+      // 실제 출연자 목록에 있는 이름만 추가
+      names.forEach(name => {
+        if (actualCastMembers.includes(name)) {
+          castMembers.push(name);
+        }
+      });
     }
   });
   
@@ -109,8 +123,12 @@ function extractCastMembers(text: string): string[] {
   seasonPatterns.forEach(pattern => {
     const matches = text.matchAll(pattern);
     for (const match of matches) {
-      if (match[1]) castMembers.push(match[1]);
-      if (match[2]) castMembers.push(match[2]);
+      if (match[1] && actualCastMembers.includes(match[1])) {
+        castMembers.push(match[1]);
+      }
+      if (match[2] && actualCastMembers.includes(match[2])) {
+        castMembers.push(match[2]);
+      }
     }
   });
   
@@ -118,8 +136,12 @@ function extractCastMembers(text: string): string[] {
   contextPatterns.forEach(pattern => {
     const matches = text.matchAll(pattern);
     for (const match of matches) {
-      if (match[1]) castMembers.push(match[1]);
-      if (match[2]) castMembers.push(match[2]);
+      if (match[1] && actualCastMembers.includes(match[1])) {
+        castMembers.push(match[1]);
+      }
+      if (match[2] && actualCastMembers.includes(match[2])) {
+        castMembers.push(match[2]);
+      }
     }
   });
   
@@ -127,26 +149,14 @@ function extractCastMembers(text: string): string[] {
   quotePatterns.forEach(pattern => {
     const matches = text.matchAll(pattern);
     for (const match of matches) {
-      if (match[1]) castMembers.push(match[1]);
+      if (match[1] && actualCastMembers.includes(match[1])) {
+        castMembers.push(match[1]);
+      }
     }
   });
   
-  // 일반적인 이름 패턴
-  namePatterns.forEach(pattern => {
-    const matches = text.matchAll(pattern);
-    for (const match of matches) {
-      if (match[1]) castMembers.push(match[1]);
-      if (match[2]) castMembers.push(match[2]);
-    }
-  });
-  
-  // 중복 제거 및 필터링 (너무 짧거나 긴 이름 제외)
-  const filtered = [...new Set(castMembers)].filter(name => 
-    name.length >= 2 && name.length <= 4 && 
-    !['기사', '뉴스', '방송', '프로그램', '쇼', '시리즈'].includes(name)
-  );
-  
-  return filtered;
+  // 중복 제거
+  return [...new Set(castMembers)];
 }
 
 // 해시 생성 함수

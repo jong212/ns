@@ -118,6 +118,19 @@
   border-color: rgba(96, 165, 250, 0.3);
 }
 
+/* 다크모드에서 타이틀 배경 개선 */
+.dark .bg-gradient-to-r.from-gray-50.to-white {
+  background: linear-gradient(to right, #374151, #4b5563);
+}
+
+.dark .bg-gradient-to-r.from-pink-100.to-purple-100 {
+  background: linear-gradient(to right, #7c3aed, #6d28d9);
+}
+
+.dark .bg-gradient-to-r.from-blue-100.to-cyan-100 {
+  background: linear-gradient(to right, #1e40af, #0891b2);
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
