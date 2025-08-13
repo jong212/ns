@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { NewsArticle, APIResponse, NewsFilters } from '@/lib/types';
 
 interface UseNewsOptions extends NewsFilters {
@@ -28,7 +28,7 @@ export function useNews(options: UseNewsOptions = {}): UseNewsReturn {
 
   const limit = options.limit || 20;
 
-  const fetchNews = async (offset: number = 0, append: boolean = false) => {
+  const fetchNews = useCallback(async (offset: number = 0, append: boolean = false) => {
     try {
       setLoading(true);
       setError(null);
@@ -71,7 +71,7 @@ export function useNews(options: UseNewsOptions = {}): UseNewsReturn {
     } finally {
       setLoading(false);
     }
-  };
+  }, [options.cast, options.source, options.from, options.to, limit]);
 
   const refetch = async () => {
     setCurrentOffset(0);
@@ -85,7 +85,7 @@ export function useNews(options: UseNewsOptions = {}): UseNewsReturn {
 
   useEffect(() => {
     fetchNews();
-  }, [options.cast, options.source, options.from, options.to, limit]);
+  }, [fetchNews]);
 
   return {
     articles,

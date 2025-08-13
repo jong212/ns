@@ -1,6 +1,5 @@
 import { NewsArticle } from '@/lib/types';
 import { formatDistanceToNow, extractDomain, truncateText } from '@/lib/utils';
-import Link from 'next/link';
 import Image from 'next/image';
 
 interface NewsCardProps {

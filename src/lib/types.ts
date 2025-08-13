@@ -12,7 +12,7 @@ export interface NewsArticle {
   fetched_at?: string;
   created_at?: string;
   status?: string;
-  raw_meta?: any;
+  raw_meta?: Record<string, unknown>;
   hash?: string;
   content_hash?: string; // 제목+요약 기반 중복 판정용 해시
   
