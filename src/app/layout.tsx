@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import "./globals.css";
+import { getBaseUrl } from "@/lib/site";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,14 +27,14 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
-  metadataBase: new URL('https://nasole-news.vercel.app'),
+  metadataBase: new URL(getBaseUrl()),
   alternates: {
     canonical: '/',
   },
   openGraph: {
     title: "나는솔로 뉴스 허브 - 나는솔로 최신 뉴스, 출연자 소식",
     description: "나는솔로 관련 최신 뉴스, 출연자 소식, 시청률, 커플 성사 현황을 실시간으로 확인하세요.",
-    url: 'https://nasole-news.vercel.app',
+    url: getBaseUrl(),
     siteName: '나는솔로 뉴스 허브',
     locale: 'ko_KR',
     type: 'website',
