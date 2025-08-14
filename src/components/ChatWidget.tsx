@@ -80,7 +80,7 @@ export function ChatWidget() {
         roomRef.current = null;
       }
     };
-  }, [isOpen, supabase]);
+  }, [isOpen]);
 
   const loadMessages = async () => {
     try {

@@ -1,7 +1,7 @@
 "use client";
 
 import { Heart } from "lucide-react";
-import { useFavorites } from "@/hooks/useFavorites";
+import { useCastFavorites } from "@/hooks/useCastFavorites";
 
 interface FavoriteButtonProps {
   castMember: string;
@@ -9,7 +9,7 @@ interface FavoriteButtonProps {
 }
 
 export function FavoriteButton({ castMember, className = "" }: FavoriteButtonProps) {
-  const { isFavorite, toggleFavorite } = useFavorites();
+  const { isFavorite, toggleFavorite } = useCastFavorites();
 
   return (
     <button
