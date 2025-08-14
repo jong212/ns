@@ -80,7 +80,10 @@ export default function CommunityDetailPage() {
       <div className="p-6 rounded-lg bg-app-card shadow-app border border-app">
         <h1 className="text-2xl font-bold text-gray-900">{post.title}</h1>
         <div className="text-sm text-gray-500 mt-1">by {post.nickname} • {new Date(post.created_at).toLocaleString()}</div>
-        <div className="mt-4 whitespace-pre-wrap text-gray-800 leading-relaxed">{post.content}</div>
+        <div
+          className="mt-4 text-gray-800 leading-relaxed prose max-w-none"
+          dangerouslySetInnerHTML={{ __html: post.content }}
+        />
       </div>
 
       <div className="p-6 rounded-lg bg-app-card shadow-app border border-app">

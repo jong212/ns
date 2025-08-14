@@ -368,9 +368,9 @@ const guideArticles = [
 
 export default function GuidePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 dark:from-[#0b0b0b] dark:via-[#0b0b0b] dark:to-[#0b0b0b]">
       {/* 헤더 */}
-      <header className="bg-gradient-to-r from-pink-500 via-purple-500 to-pink-600 text-white py-12">
+      <header className="bg-gradient-to-r from-pink-500 via-purple-500 to-pink-600 text-white py-12 dark:from-[#1f1f1f] dark:via-[#1f1f1f] dark:to-[#1f1f1f] dark:text-gray-100">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <Link href="/" className="inline-flex items-center text-white/80 hover:text-white mb-4 transition-colors">
@@ -379,7 +379,7 @@ export default function GuidePage() {
             <h1 className="text-4xl md:text-5xl font-bold mb-4">
               나는솔로 완벽 가이드
             </h1>
-            <p className="text-xl text-white/90 max-w-2xl mx-auto">
+            <p className="text-xl text-white/90 max-w-2xl mx-auto dark:text-gray-300">
               나는솔로 프로그램의 모든 것을 알아보세요. 출연자부터 시청률까지 상세한 정보를 제공합니다.
             </p>
           </div>
@@ -390,16 +390,16 @@ export default function GuidePage() {
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid gap-8">
           {guideArticles.map((article) => (
-            <article key={article.id} className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+            <article key={article.id} className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100 dark:bg-[#111213] dark:border-gray-800">
               <div className="mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                <h2 className="text-2xl font-bold text-gray-900 mb-4 dark:text-gray-100">
                   {article.title}
                 </h2>
                 <div className="flex flex-wrap gap-2">
                   {article.tags.map((tag) => (
                     <span
                       key={tag}
-                      className="px-3 py-1 bg-gradient-to-r from-pink-100 to-purple-100 text-pink-700 text-sm font-medium rounded-full"
+                      className="px-3 py-1 bg-gradient-to-r from-pink-100 to-purple-100 text-pink-700 text-sm font-medium rounded-full dark:from-[#1e1b4b] dark:to-[#3b0764] dark:text-pink-200"
                     >
                       {tag}
                     </span>
@@ -407,7 +407,7 @@ export default function GuidePage() {
                 </div>
               </div>
               
-              <div className="prose prose-lg max-w-none text-gray-700 leading-relaxed">
+              <div className="prose prose-lg max-w-none text-gray-700 leading-relaxed dark:prose-invert dark:text-gray-300">
                 {article.content.split('\n\n').map((paragraph, index) => (
                   <p key={index} className="mb-4">
                     {paragraph}
@@ -420,16 +420,16 @@ export default function GuidePage() {
 
         {/* 하단 CTA */}
         <div className="mt-16 text-center">
-          <div className="bg-gradient-to-r from-pink-500 to-purple-600 rounded-2xl p-8 text-white">
+          <div className="bg-gradient-to-r from-pink-500 to-purple-600 rounded-2xl p-8 text-white dark:from-[#1f1f1f] dark:to-[#1f1f1f] dark:text-gray-100 dark:border dark:border-gray-800">
             <h3 className="text-2xl font-bold mb-4">
               최신 나는솔로 뉴스를 확인하세요
             </h3>
-            <p className="text-white/90 mb-6">
+            <p className="text-white/90 mb-6 dark:text-gray-300">
               실시간으로 업데이트되는 나는솔로 관련 최신 뉴스와 소식을 받아보세요.
             </p>
             <Link
               href="/"
-              className="inline-flex items-center px-6 py-3 bg-white text-pink-600 font-semibold rounded-xl hover:bg-gray-100 transition-colors"
+              className="inline-flex items-center px-6 py-3 bg-white text-pink-600 font-semibold rounded-xl hover:bg-gray-100 transition-colors dark:bg-[#f1f5f9] dark:text-pink-700"
             >
               뉴스 보러가기 →
             </Link>

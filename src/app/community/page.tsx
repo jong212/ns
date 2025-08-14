@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
 import { useEffect, useState } from 'react';
 
 interface Post {
@@ -12,6 +14,8 @@ interface Post {
 }
 
 export default function CommunityListPage() {
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -31,7 +35,19 @@ export default function CommunityListPage() {
     <div className="max-w-3xl mx-auto px-4 py-10">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-app">커뮤니티</h1>
-        <Link href="/community/new" className="px-4 py-2 rounded-lg bg-pink-600 text-white hover:bg-pink-700">글쓰기</Link>
+        <button
+          className="px-4 py-2 rounded-lg bg-pink-600 text-white hover:bg-pink-700"
+          onClick={() => {
+            if (authLoading) return;
+            if (!user) {
+              router.push('/auth?redirect=%2Fcommunity%2Fnew');
+            } else {
+              router.push('/community/new');
+            }
+          }}
+        >
+          글쓰기
+        </button>
       </div>
 
       {loading ? (

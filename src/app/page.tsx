@@ -5,10 +5,9 @@ import { useNews } from '@/hooks/useNews';
 import { useMemo, useState } from 'react';
 import { CAST_CATEGORIES, matchesCast } from '@/lib/cast';
 import Link from 'next/link';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { FavoritesButton } from '@/components/FavoritesButton';
+// 테마 토글은 전역 헤더에서만 노출
 import { ChatWidget } from '@/components/ChatWidget';
-import { SiteBookmarkButton } from '@/components/SiteBookmarkButton';
+// 제거: 중복/하단 즐겨찾기 및 북마크 버튼은 메인 헤더만 유지
 
 export default function Home() {
   const { articles, loading, error, total, hasMore, refetch, loadMore } = useNews();
@@ -86,12 +85,7 @@ export default function Home() {
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="text-center">
-            {/* 다크모드 토글 버튼과 즐겨찾기 버튼 */}
-            <div className="absolute top-4 right-4 flex space-x-2">
-              <SiteBookmarkButton />
-              <FavoritesButton />
-              <ThemeToggle />
-            </div>
+            {/* 상단 글로벌 헤더의 토글만 유지. 여기서는 제거 */}
             
             <div className="inline-flex items-center justify-center w-20 h-20 bg-white/20 rounded-full mb-6 backdrop-blur-sm">
               <span className="text-3xl">💕</span>
