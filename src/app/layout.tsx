@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
+import Link from "next/link";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import "./globals.css";
 import { getBaseUrl } from "@/lib/site";
+import { FavoritesProvider } from "@/hooks/useFavorites";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -87,7 +90,7 @@ export default function RootLayout({
           strategy="afterInteractive"
         />
       </head>
-      <body
+			<body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
@@ -97,7 +100,24 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+					{/* Global Navigation */}
+					<header className="sticky top-0 z-50 border-b bg-white/70 dark:bg-gray-900/70 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+						<div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
+							<nav className="flex items-center gap-5 text-sm font-medium">
+								<Link href="/" className="text-gray-900 dark:text-gray-100 hover:opacity-80">홈</Link>
+								<Link href="/guide" className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">가이드</Link>
+								<Link href="/community" className="text-pink-600 hover:text-pink-700">커뮤니티</Link>
+							</nav>
+
+							<div className="flex items-center gap-2">
+								<ThemeToggle />
+							</div>
+						</div>
+					</header>
+
+					<FavoritesProvider>
+						{children}
+					</FavoritesProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -2,7 +2,8 @@
 
 import { NewsCard } from '@/components/ui/NewsCard';
 import { useNews } from '@/hooks/useNews';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { CAST_CATEGORIES, matchesCast } from '@/lib/cast';
 import Link from 'next/link';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { FavoritesButton } from '@/components/FavoritesButton';
@@ -13,14 +14,27 @@ export default function Home() {
   const { articles, loading, error, total, hasMore, refetch, loadMore } = useNews();
   const [selectedCast, setSelectedCast] = useState<string>('');
 
-  // 출연자 목록 추출 (중복 제거)
-  const allCastMembers = Array.from(
-    new Set(
-      articles
-        .flatMap(article => article.cast_members || [])
-        .filter(Boolean)
-    )
-  ).slice(0, 10); // 상위 10명만 표시
+  // 고정 카테고리 + 데이터 기반 추천(상위 최대 10개)
+  const dynamicCasts = useMemo(() => {
+    const freq = new Map<string, number>();
+    for (const a of articles) {
+      (a.cast_members || []).forEach((m) => freq.set(m, (freq.get(m) || 0) + 1));
+      const hay = [a.title || '', a.summary || '', (a.keywords || []).join(' ')].join(' ');
+      CAST_CATEGORIES.forEach((name) => {
+        if (hay.includes(name)) freq.set(name, (freq.get(name) || 0) + 1);
+      });
+    }
+    return Array.from(freq.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([name]) => name)
+      .filter((n) => !CAST_CATEGORIES.includes(n))
+      .slice(0, 10);
+  }, [articles]);
+
+  const allCastMembers = useMemo(
+    () => Array.from(new Set([ ...CAST_CATEGORIES, ...dynamicCasts ])),
+    [dynamicCasts]
+  );
 
   const handleCastFilter = (cast: string) => {
     setSelectedCast(cast === selectedCast ? '' : cast);
@@ -111,7 +125,7 @@ export default function Home() {
       </header>
 
       {/* 필터 섹션 */}
-      <div className="bg-white/80 backdrop-blur-sm border-b border-white/20 shadow-lg">
+      <div className="bg-app-surface backdrop-blur-sm border-b border-app shadow-app">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-wrap items-center gap-3">
             <span className="text-sm font-semibold text-gray-700 flex items-center">
@@ -150,7 +164,7 @@ export default function Home() {
         {/* 상태 표시 */}
         <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center space-x-4">
-            <div className="bg-white/80 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg border border-white/20">
+              <div className="bg-app-card backdrop-blur-sm rounded-xl px-4 py-2 shadow-app border border-app">
               <span className="text-sm text-gray-600">
                 총 <span className="font-bold text-pink-600">{total}</span>개의 뉴스
               </span>
@@ -165,7 +179,7 @@ export default function Home() {
           </div>
           <button
             onClick={refetch}
-            className="bg-white/80 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg border border-white/20 hover:bg-white hover:shadow-xl transition-all duration-200 flex items-center space-x-2"
+            className="bg-app-card backdrop-blur-sm rounded-xl px-4 py-2 shadow-app border border-app hover:shadow-xl transition-all duration-200 flex items-center space-x-2"
           >
             <span className="text-gray-600">🔄</span>
             <span className="text-sm text-gray-700 font-medium">새로고침</span>
@@ -176,10 +190,7 @@ export default function Home() {
         {articles.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {articles
-              .filter(article => 
-                !selectedCast || 
-                (article.cast_members && article.cast_members.includes(selectedCast))
-              )
+              .filter(article => !selectedCast || matchesCast(article, selectedCast))
               .map((article) => (
                 <NewsCard
                   key={article.id}
@@ -190,7 +201,7 @@ export default function Home() {
           </div>
         ) : (
           <div className="text-center py-16">
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-12 shadow-xl border border-white/20 max-w-md mx-auto">
+            <div className="bg-app-card backdrop-blur-sm rounded-2xl p-12 shadow-app border border-app max-w-md mx-auto">
               <div className="text-gray-400 text-6xl mb-6">📰</div>
               <h3 className="text-xl font-bold text-gray-900 mb-3">
                 뉴스가 없습니다
