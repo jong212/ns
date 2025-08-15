@@ -7,6 +7,10 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const Deno: any;
 
+// JWT 검증 비활성화 설정
+// 이 함수는 Cron 작업용이므로 JWT 검증을 건너뜁니다
+const SKIP_JWT_VERIFICATION = true;
+
 // CORS 정책 완화 - 모든 도메인 허용
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -61,7 +65,11 @@ function decodeHtmlEntities(text: string): string {
 // 필수 환경변수 조회(없으면 즉시 오류)
 function getRequiredEnv(key: string): string {
   const value = Deno.env.get(key);
-  if (!value) throw new Error(`${key} 시크릿이 설정되어 있지 않습니다`);
+  if (!value) {
+    const errorMsg = `필수 환경변수 ${key}가 설정되지 않았습니다. Supabase 대시보드 > Settings > Edge Functions > Secrets에서 설정해주세요.`;
+    console.error(errorMsg);
+    throw new Error(errorMsg);
+  }
   return value;
 }
 
@@ -207,7 +215,7 @@ function deduplicateByUrl(articles: NewsArticle[]): NewsArticle[] {
 async function saveLog(supabase: any, log: FunctionLog): Promise<void> {
   try {
     await supabase
-      .from('function_logs')
+      .from('solo_function_logs')
       .insert(log);
   } catch (error) {
     console.error('로그 저장 실패:', error);
@@ -219,7 +227,7 @@ async function shouldSkipByContentHash(supabase: any, contentHash: string): Prom
   const sinceIso = new Date(Date.now() - RECENT_HOURS * 3600 * 1000).toISOString();
   
   const { data: recent, error } = await supabase
-    .from('articles')
+    .from('solo_articles')
     .select('id, content_hash, published_at')
     .gte('published_at', sinceIso)
     .order('published_at', { ascending: false })
@@ -372,7 +380,7 @@ async function fetchNaverNews(supabase: any): Promise<{ success: boolean; collec
 
     // 데이터베이스에 저장
     const { data, error } = await supabase
-      .from('articles')
+      .from('solo_articles')
       .upsert(uniqueArticles, { onConflict: 'article_url' })
       .select();
 
@@ -435,14 +443,48 @@ Deno.serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  // JWT 검증 우회 - Cron 작업용이므로 인증을 건너뜁니다
+  if (SKIP_JWT_VERIFICATION) {
+    console.log('JWT 검증 우회 - Cron 작업용 인증 무시');
+  }
+
   try {
     // 크론 작업용 - 인증 완전 무시
     console.log('Edge Function 호출됨 - 크론 작업용 인증 무시');
     
-    // Supabase 클라이언트 설정
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // 환경변수 사전 검증
+    console.log('환경변수 검증 시작...');
+    const requiredEnvVars = [
+      'SUPABASE_URL',
+      'SUPABASE_SERVICE_ROLE_KEY', 
+      'NAVER_CLIENT_ID',
+      'NAVER_CLIENT_SECRET'
+    ];
+    
+    for (const envVar of requiredEnvVars) {
+      try {
+        const value = Deno.env.get(envVar);
+        if (!value) {
+          throw new Error(`환경변수 ${envVar}가 설정되지 않았습니다`);
+        }
+        console.log(`✅ ${envVar}: 설정됨`);
+      } catch (error) {
+        console.error(`❌ ${envVar}: 설정되지 않음`);
+        throw error;
+      }
+    }
+    
+    // Supabase 클라이언트 설정 (서비스 롤 키 사용으로 인증 우회)
+    const supabaseUrl = getRequiredEnv('SUPABASE_URL');
+    const supabaseKey = getRequiredEnv('SUPABASE_SERVICE_ROLE_KEY');
+    
+    console.log('Supabase 클라이언트 초기화...');
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false
+      }
+    });
 
     console.log('스케줄링 뉴스 수집 작업 시작');
 
@@ -474,11 +516,20 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     console.error('Edge Function 오류:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-    return new Response(JSON.stringify({ 
+    
+    // 더 자세한 오류 정보 제공
+    const errorResponse = {
       success: false,
       error: errorMessage,
-      message: '서버 오류가 발생했습니다'
-    }), {
+      message: '서버 오류가 발생했습니다',
+      details: {
+        timestamp: new Date().toISOString(),
+        function: 'scheduled-news-fetch',
+        version: '66'
+      }
+    };
+    
+    return new Response(JSON.stringify(errorResponse), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });

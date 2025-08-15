@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
     const offset = Math.max(parseInt(searchParams.get('offset') || '0'), 0);
 
     const { data, error } = await supabase
-      .from('posts')
+      .from('solo_posts')
       .select('*')
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { data, error } = await supabase
-      .from('posts')
+      .from('solo_posts')
       .insert({ title, content, nickname })
       .select('*')
       .single();

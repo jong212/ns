@@ -85,7 +85,7 @@ export function ChatWidget() {
   const loadMessages = async () => {
     try {
       const { data, error } = await supabase
-        .from('chat_messages')
+        .from('solo_chat_messages')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(100);
@@ -103,7 +103,7 @@ export function ChatWidget() {
     setIsLoading(true);
     try {
       const { data, error } = await supabase
-        .from('chat_messages')
+        .from('solo_chat_messages')
         .insert({
           nickname: nickname.trim(),
           message: message.trim()

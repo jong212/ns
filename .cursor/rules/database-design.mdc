@@ -2,8 +2,8 @@
 
 ## **테이블 구조**
 ```sql
--- ✅ DO: articles 테이블
-CREATE TABLE articles (
+-- ✅ DO: solo_articles 테이블
+CREATE TABLE solo_articles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title TEXT NOT NULL,
   article_url TEXT UNIQUE NOT NULL,
@@ -29,32 +29,32 @@ CREATE TABLE articles (
 ## **인덱스 전략**
 ```sql
 -- ✅ DO: 성능 최적화
-CREATE INDEX idx_articles_published_at ON articles(published_at);
-CREATE INDEX idx_articles_cluster_id ON articles(cluster_id);
-CREATE INDEX idx_articles_source ON articles(source);
-CREATE INDEX idx_articles_status ON articles(status);
+CREATE INDEX idx_solo_articles_published_at ON solo_articles(published_at);
+CREATE INDEX idx_solo_articles_cluster_id ON solo_articles(cluster_id);
+CREATE INDEX idx_solo_articles_source ON solo_articles(source);
+CREATE INDEX idx_solo_articles_status ON solo_articles(status);
 
 -- 배열 필드용 GIN 인덱스
-CREATE INDEX idx_articles_keywords ON articles USING GIN(keywords);
-CREATE INDEX idx_articles_cast_members ON articles USING GIN(cast_members);
+CREATE INDEX idx_solo_articles_keywords ON solo_articles USING GIN(keywords);
+CREATE INDEX idx_solo_articles_cast_members ON solo_articles USING GIN(cast_members);
 ```
 
 ## **쿼리 패턴**
 ```sql
 -- ✅ DO: 효율적인 검색
-SELECT * FROM articles 
+SELECT * FROM solo_articles 
 WHERE published_at >= NOW() - INTERVAL '7 days'
 AND status = 'collected'
 ORDER BY published_at DESC
 LIMIT 20;
 
 -- ✅ DO: 출연자 검색
-SELECT * FROM articles 
+SELECT * FROM solo_articles 
 WHERE '김지원' = ANY(cast_members)
 AND published_at >= NOW() - INTERVAL '30 days';
 
 -- ✅ DO: 키워드 검색
-SELECT * FROM articles 
+SELECT * FROM solo_articles 
 WHERE keywords && ARRAY['나는솔로', '연애']
 ORDER BY published_at DESC;
 ```
@@ -62,7 +62,7 @@ ORDER BY published_at DESC;
 ## **페이지네이션**
 ```sql
 -- ✅ DO: offset 기반 페이지네이션
-SELECT * FROM articles 
+SELECT * FROM solo_articles 
 WHERE published_at >= NOW() - INTERVAL '7 days'
 ORDER BY published_at DESC
 LIMIT 20 OFFSET 0;
@@ -71,12 +71,12 @@ LIMIT 20 OFFSET 0;
 ## **마이그레이션 패턴**
 ```sql
 -- ✅ DO: 안전한 컬럼 추가
-ALTER TABLE articles 
+ALTER TABLE solo_articles 
 ADD COLUMN IF NOT EXISTS cluster_id TEXT,
 ADD COLUMN IF NOT EXISTS keywords TEXT[],
 ADD COLUMN IF NOT EXISTS cast_members TEXT[];
 
 -- ✅ DO: 기본값 설정
-UPDATE articles SET keywords = ARRAY[]::TEXT[] WHERE keywords IS NULL;
-UPDATE articles SET cast_members = ARRAY[]::TEXT[] WHERE cast_members IS NULL;
+UPDATE solo_articles SET keywords = ARRAY[]::TEXT[] WHERE keywords IS NULL;
+UPDATE solo_articles SET cast_members = ARRAY[]::TEXT[] WHERE cast_members IS NULL;
 ```

@@ -8,6 +8,10 @@ declare const Deno: {
   env: { get: (key: string) => string | undefined };
 };
 
+// JWT 검증 비활성화 설정
+// 이 함수는 내부 호출용이므로 JWT 검증을 건너뜁니다
+const SKIP_JWT_VERIFICATION = true;
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': '*',
@@ -81,7 +85,7 @@ async function fetchThumbnail(articleUrl: string, timeoutMs = 10000): Promise<st
 async function enrichBatch(supabase: any, limit = 20): Promise<{ scanned: number; updated: number; failed: number } | { error: string } > {
   // 처리 대상: 썸네일 미지정 + 실패 이력 없음
   const { data: rows, error: selectError } = await supabase
-    .from('articles')
+    .from('solo_articles')
     .select('id, article_url')
     .is('thumbnail_url', null)
     .or('thumbnail_status.is.null,thumbnail_status.eq.')
@@ -116,7 +120,7 @@ async function enrichBatch(supabase: any, limit = 20): Promise<{ scanned: number
       const results = await Promise.all(
         chunk.map(async (u) => {
           const { data, error } = await supabase
-            .from('articles')
+            .from('solo_articles')
             .update({ thumbnail_url: u.thumbnail_url, thumbnail_status: 'success' })
             .eq('id', u.id)
             .select('id');
@@ -134,7 +138,7 @@ async function enrichBatch(supabase: any, limit = 20): Promise<{ scanned: number
     for (let i = 0; i < failures.length; i += chunkSize) {
       const chunk = failures.slice(i, i + chunkSize);
       const { data, error } = await supabase
-        .from('articles')
+        .from('solo_articles')
         .update({ thumbnail_status: 'failed' })
         .in('id', chunk)
         .select('id');

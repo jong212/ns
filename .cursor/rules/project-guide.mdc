@@ -243,3 +243,59 @@ src/app/guide/
 - **Google Search Console**: 검색 성능 추적
 - **Google Analytics**: 사용자 행동 분석
 - **AdSense 대시보드**: 수익 및 성과 확인
+
+# Project Playbook
+
+## 1) 수집 품질(News Fetch Quality)
+- 키워드: `나는솔로`, `나솔`
+- 관련성 필터(제목/요약):
+  - 허용: `(나는\s*솔로)` 또는 단독 어휘 `나솔`
+  - 차단: 단순 `솔로`만 등장하는 기사
+- 코드 참조: [scheduled-news-fetch/index.ts](mdc:supabase/functions/scheduled-news-fetch/index.ts)
+
+## 2) 중복 차단(24h Embedding)
+- 모델: 임베딩 전용 1개(OpenAI `text-embedding-3-small` 권장)
+- 임계치: 코사인 0.93(운영 중 0.90~0.95 튜닝)
+- 시간창: 최근 24h, 비교 상한 `MAX_COMPARE=300`
+- 스키마: `articles.embedding vector(1536)`, ivfflat(cosine) 인덱스
+- 정책: 중복이면 저장 스킵, 비중복이면 임베딩 저장
+- 가이드: [project-guide.mdc](mdc:.cursor/rules/project-guide.mdc)
+
+## 3) 썸네일 정책(Thumbnail Enrichment)
+- 흐름: 저장 완료 후 비동기 트리거 → `enrich-thumbnails`
+- 대상: `thumbnail_url IS NULL` 그리고 `thumbnail_status IS NULL|''`
+- 성공: `thumbnail_status='success'`, 실패: `thumbnail_status='failed'`(재시도 안 함)
+- 동시성: 5개, 배치 업데이트, limit 기본 20(요청 body로 조절)
+- 코드: [enrich-thumbnails/index.ts](mdc:supabase/functions/enrich-thumbnails/index.ts)
+
+## 4) 배포 규칙(Deploy)
+- 변경 대상: `supabase/functions/**/*.ts`, `supabase/migrations/*.sql`
+- 원칙: 수정 즉시 배포/적용 시도(MCP 우선, 불가 시 CLI)
+- CLI 예시:
+  - `npx supabase db push`
+  - `npx supabase functions deploy scheduled-news-fetch --project-ref <ref>`
+  - `npx supabase functions deploy enrich-thumbnails --project-ref <ref>`
+
+## 5) Edge Function 배포 제한사항 ⚠️ CRITICAL
+- **코드 길이 제한**: MCP `deploy_edge_function` 도구는 긴 코드를 잘라서 배포함
+- **해결책**: 긴 Edge Function 코드는 반드시 CLI로 배포
+- **CLI 배포 명령어**:
+  ```bash
+  npx supabase functions deploy scheduled-news-fetch --project-ref jlccchxxhkahmnuapmlj
+  npx supabase functions deploy enrich-thumbnails --project-ref jlccchxxhkahmnuapmlj
+  ```
+- **MCP 사용 금지**: `scheduled-news-fetch`와 `enrich-thumbnails`는 코드가 길어서 MCP 배포 금지
+- **대안**: MCP는 로그 확인, 설정 변경 등에만 사용
+
+## 6) 관측/로그(Observability)
+- 함수 로그 테이블: `function_logs(function_name, status, execution_time, error_message, created_at)`
+- Edge Logs에서 확인해야 할 키 메세지
+  - `enrich-thumbnails 트리거 완료`
+  - `데이터베이스 저장 실패:` / `임베딩 생성 실패:`
+- 쿼리 캐시 이슈 시: `notify pgrst, 'reload schema'`
+
+## 7) 환경 변수(Secrets)
+- Edge Functions: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, `OPENAI_API_KEY`
+- 프론트: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+---

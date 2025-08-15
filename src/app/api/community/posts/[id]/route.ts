@@ -5,14 +5,14 @@ export async function GET(_req: Request, context: { params: Promise<{ id: string
   try {
     const { id } = await context.params;
     const { data: post, error: e1 } = await supabase
-      .from('posts')
+      .from('solo_posts')
       .select('*')
       .eq('id', id)
       .single();
     if (e1) throw e1;
 
     const { data: comments, error: e2 } = await supabase
-      .from('comments')
+      .from('solo_comments')
       .select('*')
       .eq('post_id', id)
       .order('created_at', { ascending: false });

@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { data, error } = await supabase
-      .from('comments')
+      .from('solo_comments')
       .insert({ post_id, content, nickname })
       .select('*')
       .single();

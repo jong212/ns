@@ -12,9 +12,9 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    // 기본 쿼리 - articles 테이블에서 데이터 조회
+    // 기본 쿼리 - solo_articles 테이블에서 데이터 조회
     let query = supabase
-      .from('articles')
+      .from('solo_articles')
       .select('*')
       .order('published_at', { ascending: false });
 
