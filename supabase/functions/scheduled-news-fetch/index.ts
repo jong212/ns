@@ -430,13 +430,14 @@ async function fetchNaverNews(supabase: any): Promise<{ success: boolean; collec
 }
 
 Deno.serve(async (req: Request) => {
+  // CORS preflight 요청 처리
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    // 모든 요청 허용 (인증 제거)
-    console.log('Edge Function 호출됨 - 모든 요청 허용');
+    // 크론 작업용 - 인증 완전 무시
+    console.log('Edge Function 호출됨 - 크론 작업용 인증 무시');
     
     // Supabase 클라이언트 설정
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
